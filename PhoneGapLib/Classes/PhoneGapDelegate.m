@@ -3,6 +3,9 @@
 #import <UIKit/UIKit.h>
 #import "Movie.h"
 #import "InvokedUrlCommand.h"
+#import <QuartzCore/QuartzCore.h>
+
+#define degreesToRadian(x) (M_PI * x / 180.0)
 
 @implementation PhoneGapDelegate
 
@@ -206,8 +209,44 @@ static NSString *gapVersion;
 	 * imageView - is the Default loading screen, it stay up until the app and UIWebView (WebKit) has completly loaded.
 	 * You can change this image by swapping out the Default.png file within the resource folder.
 	 */
-	UIImage* image = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"Default" ofType:@"png"]];
+	UIDevice *device = [UIDevice currentDevice];
+//	NSLog(@"Startup orientation is device = %d, interface = %d", device.orientation, self.viewController.interfaceOrientation);
+	// It looks like device orientation and interface orientation are not in sync on startup.  We either need to bring them into sync
+	// somehow or do some rotates on the startup images before adding them as subview...
+	// For now let's try the rotates.  Note: device.orientation is always Portrait on the simulator?
+	NSString *loadingImageResource;
+	BOOL iPad = NO; 
+#ifdef UI_USER_INTERFACE_IDIOM 
+	iPad = (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad); 
+#endif 
+	CGAffineTransform startupImageTransform = CGAffineTransformIdentity;
+	if (iPad) {
+		if (device.orientation == UIDeviceOrientationLandscapeRight) {
+			loadingImageResource = @"Default-Landscape";
+			startupImageTransform = CGAffineTransformMakeRotation(degreesToRadian(-90));
+		}
+		else if (device.orientation == UIDeviceOrientationLandscapeLeft) {
+			loadingImageResource = @"Default-Landscape";
+			startupImageTransform = CGAffineTransformMakeRotation(degreesToRadian(90));
+		}
+		else if (device.orientation == UIDeviceOrientationPortraitUpsideDown) {
+			loadingImageResource = @"Default-Portrait";
+			startupImageTransform = CGAffineTransformMakeRotation(degreesToRadian(180));
+		}
+		else {
+			loadingImageResource = @"Default-Portrait";
+		}
+
+	} else {
+		loadingImageResource = @"Default";
+	}
+	UIImage* image = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:loadingImageResource ofType:@"png"]];
 	imageView = [[UIImageView alloc] initWithImage:image];
+	if (iPad && !CGAffineTransformIsIdentity(startupImageTransform))
+	{
+		imageView.center  = CGPointMake (384.0, 512.0);
+		[imageView setTransform:startupImageTransform];
+	}
 	[image release];
 	
     imageView.tag = 1;
